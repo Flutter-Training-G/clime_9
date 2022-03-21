@@ -1,12 +1,64 @@
+import 'dart:convert';
+
+import 'package:clima/screens/city_screen.dart';
+import 'package:clima/services/weather.dart';
 import 'package:flutter/material.dart';
 import 'package:clima/utilities/constants.dart';
 
 class LocationScreen extends StatefulWidget {
+  final localWeatherData;
+
+  LocationScreen(this.localWeatherData);
   @override
   _LocationScreenState createState() => _LocationScreenState();
 }
 
 class _LocationScreenState extends State<LocationScreen> {
+  var weatherModel = WeatherModel();
+
+  late String weatherCondition;
+  late int temperature;
+  late String cityName;
+  late String weatherMessage;
+
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    // print(widget.localWeatherData);
+    updateUI(widget.localWeatherData);
+  }
+
+  void updateUI(dynamic weatherData) {
+    var decodedData;
+    try {
+      decodedData = jsonDecode(weatherData);
+    } catch (e) {
+      // TODO
+      print(e);
+      temperature = 0;
+      cityName = '';
+      weatherCondition = 'Error';
+      weatherMessage = 'Unable to get weather data';
+
+      return;
+    }
+    // try {
+    // } catch (e) {
+    //   // TODO
+    //   print(e);
+    //   return;
+    // }
+    var condition = decodedData['weather'][0]['id'];
+    weatherCondition = weatherModel.getWeatherIcon(condition);
+    var temp = decodedData['main']['temp'];
+    temperature = temp.toInt();
+    cityName = decodedData['name'];
+    weatherMessage = weatherModel.getMessage(temperature);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,14 +81,36 @@ class _LocationScreenState extends State<LocationScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      setState(() {
+                        isLoading = true;
+                      });
+                      var weatherData = await weatherModel.getWeatherData();
+                      print(weatherData);
+                      setState(() {
+                        updateUI(weatherData);
+                        isLoading = false;
+                      });
+                    },
                     child: Icon(
                       Icons.near_me,
                       size: 50.0,
                     ),
                   ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () async {
+                      var weatherData = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (BuildContext context) => CityScreen(),
+                        ),
+                      );
+                      setState(() {
+                        if (weatherData != null) {
+                          updateUI(weatherData);
+                        }
+                      });
+                    },
                     child: Icon(
                       Icons.location_city,
                       size: 50.0,
@@ -49,20 +123,22 @@ class _LocationScreenState extends State<LocationScreen> {
                 child: Row(
                   children: <Widget>[
                     Text(
-                      '32°',
+                      '$temperature°',
                       style: kTempTextStyle,
                     ),
-                    Text(
-                      '☀️',
-                      style: kConditionTextStyle,
-                    ),
+                    isLoading
+                        ? CircularProgressIndicator()
+                        : Text(
+                            weatherCondition,
+                            style: kConditionTextStyle,
+                          ),
                   ],
                 ),
               ),
               Padding(
                 padding: EdgeInsets.only(right: 15.0),
                 child: Text(
-                  "It's 🍦 time in San Francisco!",
+                  "$weatherMessage ${widget.localWeatherData == null ? '' : 'in '}$cityName!",
                   textAlign: TextAlign.right,
                   style: kMessageTextStyle,
                 ),
